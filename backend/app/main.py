@@ -12,6 +12,7 @@ NIP_LENGTH = 10
 REJESTR_IO_BASE_URL = os.getenv("REJESTR_IO_BASE_URL", "https://rejestr.io/api/v2")
 REJESTR_IO_API_KEY = os.getenv("REJESTR_IO_API_KEY", "").strip()
 REJESTR_IO_AUTH_SCHEME = os.getenv("REJESTR_IO_AUTH_SCHEME", "Bearer").strip()
+REJESTR_IO_AUTH_FALLBACK_ENABLED = os.getenv("REJESTR_IO_AUTH_FALLBACK_ENABLED", "1").strip() == "1"
 REJESTR_IO_TIMEOUT_SECONDS = float(os.getenv("REJESTR_IO_TIMEOUT_SECONDS", "10"))
 
 
@@ -80,22 +81,36 @@ def build_authorization_value() -> str:
     return REJESTR_IO_API_KEY
 
 
+def authorization_candidates() -> list[str]:
+    primary = build_authorization_value()
+    candidates = [primary]
+
+    # Some APIs expect a raw key in Authorization without a scheme.
+    if REJESTR_IO_AUTH_FALLBACK_ENABLED and REJESTR_IO_AUTH_SCHEME and REJESTR_IO_API_KEY not in candidates:
+        candidates.append(REJESTR_IO_API_KEY)
+
+    return candidates
+
+
 def fetch_rejestr_data(nip: str) -> dict:
     if not REJESTR_IO_API_KEY:
         raise HTTPException(status_code=500, detail="Brak konfiguracji REJESTR_IO_API_KEY.")
 
     url = f"{REJESTR_IO_BASE_URL.rstrip('/')}/org/nip{nip}"
-    headers = {
-        "Authorization": build_authorization_value(),
-    }
-
     try:
         with httpx.Client(timeout=REJESTR_IO_TIMEOUT_SECONDS) as client:
-            response = client.get(url, headers=headers)
+            response = None
+            for auth_value in authorization_candidates():
+                response = client.get(url, headers={"Authorization": auth_value})
+                if response.status_code not in (401, 403):
+                    break
     except httpx.TimeoutException as exc:
         raise HTTPException(status_code=504, detail="Timeout podczas łączenia z rejestr.io.") from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail="Błąd połączenia z rejestr.io.") from exc
+
+    if response is None:
+        raise HTTPException(status_code=502, detail="Nie udało się uzyskać odpowiedzi z rejestr.io.")
 
     if response.status_code == 404:
         raise HTTPException(status_code=404, detail="Nie znaleziono danych organizacji dla podanego NIP.")
