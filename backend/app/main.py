@@ -11,6 +11,7 @@ from pydantic import BaseModel
 NIP_LENGTH = 10
 REJESTR_IO_BASE_URL = os.getenv("REJESTR_IO_BASE_URL", "https://rejestr.io/api/v2")
 REJESTR_IO_API_KEY = os.getenv("REJESTR_IO_API_KEY", "").strip()
+REJESTR_IO_AUTH_SCHEME = os.getenv("REJESTR_IO_AUTH_SCHEME", "Bearer").strip()
 REJESTR_IO_TIMEOUT_SECONDS = float(os.getenv("REJESTR_IO_TIMEOUT_SECONDS", "10"))
 
 
@@ -73,13 +74,19 @@ def map_rejestr_payload(payload: dict, nip: str) -> dict:
     }
 
 
+def build_authorization_value() -> str:
+    if REJESTR_IO_AUTH_SCHEME:
+        return f"{REJESTR_IO_AUTH_SCHEME} {REJESTR_IO_API_KEY}"
+    return REJESTR_IO_API_KEY
+
+
 def fetch_rejestr_data(nip: str) -> dict:
     if not REJESTR_IO_API_KEY:
         raise HTTPException(status_code=500, detail="Brak konfiguracji REJESTR_IO_API_KEY.")
 
     url = f"{REJESTR_IO_BASE_URL.rstrip('/')}/org/nip{nip}"
     headers = {
-        "X-API-KEY": REJESTR_IO_API_KEY,
+        "Authorization": build_authorization_value(),
     }
 
     try:
