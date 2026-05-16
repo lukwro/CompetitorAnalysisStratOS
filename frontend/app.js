@@ -67,7 +67,13 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload),
     });
 
-    const body = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    let body;
+    if (contentType.includes("application/json")) {
+      body = await response.json();
+    } else {
+      body = { detail: (await response.text()) || "Nieznany błąd serwera." };
+    }
 
     if (!response.ok) {
       throw new Error(body.detail || "Nie udało się pobrać danych organizacji.");
