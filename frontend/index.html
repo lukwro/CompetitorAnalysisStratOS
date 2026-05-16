@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Backlog - TASK-1</title>
+  <title>CompetitorAnalysisStratOS</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
   <main class="container">
-    <h1>Prosta aplikacja z inputem nazwy firmy</h1>
+    <h1>Aplikacja do określania konkurencji</h1>
+    <p>Wpisz NIP, aby zapisać firmę do analizy konkurencyjnej.</p>
 
     <form id="company-form" class="form">
-      <label for="name">Nazwa firmy</label>
-      <input id="name" name="name" type="text" maxlength="200" required />
+      <label for="nip">NIP</label>
+      <input id="nip" name="nip" type="text" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required />
       <button type="submit">Zapisz</button>
     </form>
 
@@ -22,7 +23,7 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Nazwa firmy</th>
+          <th>NIP</th>
         </tr>
       </thead>
       <tbody id="companies-table-body"></tbody>

@@ -4,7 +4,7 @@
     : "";
 
 const form = document.getElementById("company-form");
-const nameInput = document.getElementById("name");
+const nipInput = document.getElementById("nip");
 const messageEl = document.getElementById("message");
 const tableBody = document.getElementById("companies-table-body");
 
@@ -19,11 +19,11 @@ function addRow(company) {
   const idCell = document.createElement("td");
   idCell.textContent = String(company.id);
 
-  const nameCell = document.createElement("td");
-  nameCell.textContent = company.name;
+  const nipCell = document.createElement("td");
+  nipCell.textContent = company.nip;
 
   row.appendChild(idCell);
-  row.appendChild(nameCell);
+  row.appendChild(nipCell);
   tableBody.appendChild(row);
 }
 
@@ -47,7 +47,7 @@ form.addEventListener("submit", async (event) => {
   showMessage("", "");
 
   const payload = {
-    name: nameInput.value,
+    nip: nipInput.value,
   };
 
   try {
@@ -62,12 +62,12 @@ form.addEventListener("submit", async (event) => {
     const body = await response.json();
 
     if (!response.ok) {
-      throw new Error(body.detail || "Nie udało się zapisać firmy.");
+      throw new Error(body.detail || "Nie udało się zapisać NIP-u.");
     }
 
     addRow(body);
     form.reset();
-    showMessage("Nazwa firmy zapisana poprawnie.", "success");
+    showMessage("NIP zapisany poprawnie.", "success");
   } catch (error) {
     showMessage(error.message, "error");
   }

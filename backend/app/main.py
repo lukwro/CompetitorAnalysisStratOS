@@ -6,16 +6,16 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-MAX_COMPANY_NAME_LEN = 200
+NIP_LENGTH = 10
 
 
 class CompanyIn(BaseModel):
-    name: str
+    nip: str
 
 
 class CompanyOut(BaseModel):
     id: int
-    name: str
+    nip: str
 
 
 app = FastAPI(title="CompetitorAnalysisStratOS")
@@ -36,29 +36,29 @@ if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
-def normalize_company_name(value: str) -> str:
+def normalize_nip(value: str) -> str:
     normalized = value.strip()
     if not normalized:
-        raise ValueError("Pole 'nazwa firmy' jest wymagane.")
-    if len(normalized) > MAX_COMPANY_NAME_LEN:
-        raise ValueError("Nazwa firmy może mieć maksymalnie 200 znaków.")
+        raise ValueError("Pole 'NIP' jest wymagane.")
+    if not normalized.isdigit() or len(normalized) != NIP_LENGTH:
+        raise ValueError("NIP musi zawierać dokładnie 10 cyfr.")
     return normalized
 
 
 @app.post("/api/company", response_model=CompanyOut, status_code=201)
 def create_company(payload: CompanyIn) -> CompanyOut:
     try:
-        normalized_name = normalize_company_name(payload.name)
+        normalized_nip = normalize_nip(payload.nip)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    companies.append(normalized_name)
-    return CompanyOut(id=len(companies), name=normalized_name)
+    companies.append(normalized_nip)
+    return CompanyOut(id=len(companies), nip=normalized_nip)
 
 
 @app.get("/api/companies", response_model=list[CompanyOut])
 def list_companies() -> list[CompanyOut]:
-    return [CompanyOut(id=index + 1, name=name) for index, name in enumerate(companies)]
+    return [CompanyOut(id=index + 1, nip=nip) for index, nip in enumerate(companies)]
 
 
 @app.get("/", include_in_schema=False)
