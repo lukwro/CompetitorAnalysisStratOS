@@ -114,6 +114,24 @@ def fetch_rejestr_data(nip: str) -> dict:
 
     if response.status_code == 404:
         raise HTTPException(status_code=404, detail="Nie znaleziono danych organizacji dla podanego NIP.")
+    if response.status_code in (401, 403):
+        upstream_detail = None
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                upstream_detail = payload.get("message") or payload.get("detail") or payload.get("error")
+        except ValueError:
+            upstream_detail = response.text.strip() or None
+
+        if upstream_detail:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Autoryzacja odrzucona przez rejestr.io (HTTP {response.status_code}): {upstream_detail}",
+            )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Autoryzacja odrzucona przez rejestr.io (HTTP {response.status_code}).",
+        )
     if response.status_code >= 500:
         raise HTTPException(status_code=502, detail="rejestr.io jest chwilowo niedostępne.")
     if response.status_code >= 400:
