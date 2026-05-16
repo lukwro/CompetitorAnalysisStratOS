@@ -1,5 +1,9 @@
-﻿from fastapi import FastAPI, HTTPException
+﻿from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 MAX_COMPANY_NAME_LEN = 200
@@ -25,6 +29,11 @@ app.add_middleware(
 
 # TASK-1: in-memory store. DB integration is planned in next tasks.
 companies: list[str] = []
+ROOT_DIR = Path(__file__).resolve().parents[2]
+FRONTEND_DIR = ROOT_DIR / "frontend"
+
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
 def normalize_company_name(value: str) -> str:
@@ -50,3 +59,8 @@ def create_company(payload: CompanyIn) -> CompanyOut:
 @app.get("/api/companies", response_model=list[CompanyOut])
 def list_companies() -> list[CompanyOut]:
     return [CompanyOut(id=index + 1, name=name) for index, name in enumerate(companies)]
+
+
+@app.get("/", include_in_schema=False)
+def serve_frontend() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "index.html")
