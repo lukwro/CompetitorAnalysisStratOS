@@ -108,3 +108,51 @@ Po wpisaniu NIP użytkownik automatycznie pobiera podstawowe dane organizacji z 
 
 ### Status
 IN PROGRESS
+
+## [TASK-3] Test połączenia z OpenAI API (GUI)
+
+### Cel biznesowy
+Potwierdzenie, że aplikacja ma poprawnie skonfigurowane połączenie z OpenAI API i że użytkownik widzi w GUI wynik testu połączenia.
+
+### Zakres
+
+- [ ] Dodanie konfiguracji klucza OpenAI w zmiennych środowiskowych (`OPENAI_API_KEY`).
+- [ ] Dodanie konfiguracji URL API (`OPENAI_BASE_URL`, domyślnie `https://api.openai.com/v1`).
+- [ ] Dodanie prostego endpointu backendu do testu połączenia z OpenAI.
+- [ ] Wywołanie minimalnego requestu do OpenAI potwierdzającego dostępność API.
+- [ ] Obsługa błędów: brak klucza, timeout, 4xx/5xx z OpenAI.
+- [ ] Prezentacja wyniku testu połączenia w GUI (success/error).
+
+### Minimalny zakres danych do odczytu
+
+- [ ] Status połączenia (`OK` / `ERROR`)
+- [ ] Komunikat techniczny (skrót odpowiedzi lub błąd)
+
+### Poza zakresem
+
+- Generowanie analizy konkurencji przez AI.
+- Budowanie promptów biznesowych.
+- Zapisywanie historii zapytań do OpenAI.
+- Fine-tuning / RAG.
+
+### Kryteria akceptacji (AC)
+
+- [ ] System odczytuje `OPENAI_API_KEY` z ENV i nie loguje klucza.
+- [ ] Endpoint testowy zwraca `OK` dla poprawnej konfiguracji i dostępnego API.
+- [ ] Frontend pokazuje wynik testu połączenia (success/error).
+- [ ] Dla błędu OpenAI użytkownik widzi czytelny komunikat.
+- [ ] Dla braku klucza API system zwraca kontrolowany błąd konfiguracyjny.
+
+### Definition of Done (DoD)
+
+- [ ] Konfiguracja ENV (`OPENAI_API_KEY`, `OPENAI_BASE_URL`)
+- [ ] Kod backendu integracji z OpenAI API
+- [ ] Endpoint API testu połączenia
+- [ ] Aktualizacja frontendu (przycisk/sekcja testu połączenia)
+- [ ] Testy unit/integracyjne endpointu testowego (mock OpenAI API)
+- [ ] Testy integracyjne (mock OpenAI API)
+- [ ] Aktualizacja dokumentacji
+- [ ] Review/merge
+
+### Status
+TODO

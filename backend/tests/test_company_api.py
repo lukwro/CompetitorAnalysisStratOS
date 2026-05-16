@@ -155,3 +155,64 @@ def test_create_company_returns_502_for_invalid_upstream_payload_shape() -> None
 
     assert response.status_code == 502
     assert "format" in response.json()["detail"].lower()
+
+
+def test_openai_connection_test_success() -> None:
+    response_mock = Mock()
+    response_mock.status_code = 200
+    response_mock.json.return_value = {"data": []}
+
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.get.return_value = response_mock
+        response = client.get("/api/openai/connection-test")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "OK"
+    assert "działa poprawnie" in body["detail"]
+
+
+def test_openai_connection_test_without_api_key() -> None:
+    with patch("app.main.OPENAI_API_KEY", ""):
+        response = client.get("/api/openai/connection-test")
+
+    assert response.status_code == 500
+    assert "OPENAI_API_KEY" in response.json()["detail"]
+
+
+def test_openai_connection_test_timeout() -> None:
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.get.side_effect = httpx.TimeoutException("timeout")
+        response = client.get("/api/openai/connection-test")
+
+    assert response.status_code == 504
+    assert "Timeout" in response.json()["detail"]
+
+
+def test_openai_connection_test_5xx() -> None:
+    response_mock = Mock()
+    response_mock.status_code = 503
+
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.get.return_value = response_mock
+        response = client.get("/api/openai/connection-test")
+
+    assert response.status_code == 502
+    assert "niedostępne" in response.json()["detail"]
+
+
+def test_openai_connection_test_invalid_payload_shape() -> None:
+    response_mock = Mock()
+    response_mock.status_code = 200
+    response_mock.json.return_value = {"unexpected": "shape"}
+
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.get.return_value = response_mock
+        response = client.get("/api/openai/connection-test")
+
+    assert response.status_code == 502
+    assert "format" in response.json()["detail"].lower()

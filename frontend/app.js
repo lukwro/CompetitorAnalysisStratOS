@@ -8,6 +8,8 @@ const nipInput = document.getElementById("nip");
 const messageEl = document.getElementById("message");
 const tableBody = document.getElementById("companies-table-body");
 const debugOutput = document.getElementById("debug-output");
+const openAiTestBtn = document.getElementById("openai-connection-test-btn");
+const openAiResultEl = document.getElementById("openai-connection-result");
 
 function showMessage(text, type) {
   messageEl.textContent = text;
@@ -20,6 +22,11 @@ function showDebug(debugData) {
     return;
   }
   debugOutput.textContent = JSON.stringify(debugData, null, 2);
+}
+
+function showOpenAiConnectionResult(text, type) {
+  openAiResultEl.textContent = text;
+  openAiResultEl.className = `message ${type}`;
 }
 
 function addRow(company) {
@@ -59,6 +66,29 @@ async function fetchCompanies() {
     showMessage(error.message, "error");
   }
 }
+
+openAiTestBtn.addEventListener("click", async () => {
+  showOpenAiConnectionResult("Trwa test połączenia z OpenAI...", "");
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/openai/connection-test`);
+    const contentType = response.headers.get("content-type") || "";
+    let body;
+    if (contentType.includes("application/json")) {
+      body = await response.json();
+    } else {
+      body = { detail: (await response.text()) || "Nieznany błąd serwera." };
+    }
+
+    if (!response.ok) {
+      throw new Error(body.detail || "Test połączenia OpenAI nie powiódł się.");
+    }
+
+    showOpenAiConnectionResult(`${body.status}: ${body.detail}`, "success");
+  } catch (error) {
+    showOpenAiConnectionResult(error.message, "error");
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

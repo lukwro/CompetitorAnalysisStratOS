@@ -14,6 +14,9 @@ REJESTR_IO_API_KEY = os.getenv("REJESTR_IO_API_KEY", "").strip()
 REJESTR_IO_AUTH_SCHEME = os.getenv("REJESTR_IO_AUTH_SCHEME", "Bearer").strip()
 REJESTR_IO_AUTH_FALLBACK_ENABLED = os.getenv("REJESTR_IO_AUTH_FALLBACK_ENABLED", "1").strip() == "1"
 REJESTR_IO_TIMEOUT_SECONDS = float(os.getenv("REJESTR_IO_TIMEOUT_SECONDS", "10"))
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
+OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "10"))
 
 
 class CompanyIn(BaseModel):
@@ -30,6 +33,12 @@ class CompanyOut(BaseModel):
     address: str | None = None
     krd_status: str | None = None
     debug: dict | None = None
+
+
+class OpenAIConnectionOut(BaseModel):
+    status: str
+    detail: str
+    provider: str = "openai"
 
 
 app = FastAPI(title="CompetitorAnalysisStratOS")
@@ -210,6 +219,40 @@ def fetch_rejestr_data(nip: str) -> tuple[dict, dict]:
     return map_rejestr_payload(payload, nip), debug
 
 
+def check_openai_connection() -> OpenAIConnectionOut:
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="Brak konfiguracji OPENAI_API_KEY.")
+
+    url = f"{OPENAI_BASE_URL.rstrip('/')}/models"
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Accept": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=OPENAI_TIMEOUT_SECONDS) as client:
+            response = client.get(url, headers=headers)
+    except httpx.TimeoutException as exc:
+        raise HTTPException(status_code=504, detail="Timeout podczas łączenia z OpenAI API.") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Błąd połączenia z OpenAI API.") from exc
+
+    if response.status_code >= 500:
+        raise HTTPException(status_code=502, detail="OpenAI API jest chwilowo niedostępne.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Błąd odpowiedzi z OpenAI API (HTTP {response.status_code}).")
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Nieprawidłowa odpowiedź JSON z OpenAI API.") from exc
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        raise HTTPException(status_code=502, detail="Nieprawidłowy format odpowiedzi z OpenAI API.")
+
+    return OpenAIConnectionOut(status="OK", detail="Połączenie z OpenAI API działa poprawnie.")
+
+
 @app.post("/api/company", response_model=CompanyOut, status_code=201)
 def create_company(payload: CompanyIn) -> CompanyOut:
     try:
@@ -226,6 +269,11 @@ def create_company(payload: CompanyIn) -> CompanyOut:
 @app.get("/api/companies", response_model=list[CompanyOut])
 def list_companies() -> list[CompanyOut]:
     return companies
+
+
+@app.get("/api/openai/connection-test", response_model=OpenAIConnectionOut)
+def openai_connection_test() -> OpenAIConnectionOut:
+    return check_openai_connection()
 
 
 @app.get("/", include_in_schema=False)

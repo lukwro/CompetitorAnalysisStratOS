@@ -162,3 +162,60 @@ Kroki:
 Oczekiwany rezultat:
 - Endpoint aplikacji zwraca poprawny status i payload.
 - Test nie wykonuje realnego połączenia sieciowego.
+
+## TASK-3: Test połączenia z OpenAI API (GUI)
+
+### [ ] TC-301 - Poprawny test połączenia OpenAI
+Cel: Potwierdzenie, że endpoint testowy poprawnie łączy się z OpenAI API.
+Kroki:
+1. Uruchom backend z poprawnym `OPENAI_API_KEY`.
+2. Wywołaj endpoint testu połączenia.
+Oczekiwany rezultat:
+- Backend wywołuje OpenAI API.
+- API aplikacji zwraca status `OK`.
+- GUI wyświetla komunikat o poprawnym połączeniu.
+
+### [ ] TC-302 - Brak klucza `OPENAI_API_KEY`
+Cel: Weryfikacja zachowania przy braku konfiguracji API.
+Kroki:
+1. Uruchom backend bez `OPENAI_API_KEY`.
+2. Wywołaj endpoint testu połączenia.
+Oczekiwany rezultat:
+- API aplikacji zwraca kontrolowany błąd konfiguracji.
+- Użytkownik widzi czytelny komunikat.
+
+### [ ] TC-303 - Timeout po stronie OpenAI API
+Cel: Sprawdzenie odporności na opóźnienia API zewnętrznego.
+Kroki:
+1. Zasymuluj timeout wywołania OpenAI.
+2. Wywołaj endpoint testu połączenia.
+Oczekiwany rezultat:
+- Backend zwraca kontrolowany błąd timeout.
+- Frontend pokazuje komunikat i umożliwia ponowienie.
+
+### [ ] TC-304 - Błąd 4xx/5xx z OpenAI API
+Cel: Weryfikacja mapowania błędów dostawcy.
+Kroki:
+1. Zasymuluj odpowiedź 4xx lub 5xx z OpenAI API.
+2. Wywołaj endpoint testu połączenia.
+Oczekiwany rezultat:
+- Backend zwraca kontrolowaną odpowiedź błędu.
+- Frontend wyświetla czytelny komunikat.
+
+### [ ] TC-305 - Test GUI wyniku połączenia
+Cel: Potwierdzenie, że GUI prezentuje wynik testu połączenia.
+Kroki:
+1. W GUI uruchom test połączenia dla scenariusza success i error.
+2. Sprawdź komunikaty w interfejsie.
+Oczekiwany rezultat:
+- Dla success GUI pokazuje pozytywny status.
+- Dla error GUI pokazuje czytelny błąd.
+
+### [ ] TC-306 - Test integracyjny z mockiem OpenAI API
+Cel: Potwierdzenie przepływu endpointu testowego bez realnego połączenia do OpenAI.
+Kroki:
+1. Uruchom test integracyjny z mockowaną odpowiedzią OpenAI.
+2. Wywołaj endpoint testu połączenia.
+Oczekiwany rezultat:
+- Endpoint zwraca poprawny status testu połączenia.
+- Test nie wykonuje realnego połączenia sieciowego.

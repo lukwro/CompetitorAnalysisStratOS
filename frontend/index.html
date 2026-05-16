@@ -11,6 +11,11 @@
     <h1>Aplikacja do określania konkurencji</h1>
     <p>Wpisz NIP, aby pobrać podstawowe dane organizacji z rejestr.io (w tym informację o KRD, jeśli dostępna).</p>
 
+    <section class="form">
+      <button id="openai-connection-test-btn" type="button">Test połączenia OpenAI</button>
+      <p id="openai-connection-result" class="message" aria-live="polite">Brak testu połączenia OpenAI.</p>
+    </section>
+
     <form id="company-form" class="form">
       <label for="nip">NIP</label>
       <input id="nip" name="nip" type="text" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required />
