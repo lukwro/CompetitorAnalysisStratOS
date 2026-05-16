@@ -65,12 +65,29 @@ def map_rejestr_payload(payload: dict, nip: str) -> dict:
     if not isinstance(data, dict):
         raise HTTPException(status_code=502, detail="Nieprawidłowy format danych organizacji z rejestr.io.")
 
+    raw_address = data.get("adres") or data.get("address")
+    if isinstance(raw_address, dict):
+        address_parts = [
+            raw_address.get("kod"),
+            raw_address.get("miejscowosc"),
+            raw_address.get("ulica"),
+        ]
+        address = ", ".join([part for part in address_parts if isinstance(part, str) and part.strip()]) or str(raw_address)
+    elif isinstance(raw_address, str):
+        address = raw_address
+    else:
+        address = data.get("ulica") if isinstance(data.get("ulica"), str) else None
+
+    city = data.get("miasto") or data.get("miejscowosc") or data.get("city")
+    if not isinstance(city, str) and isinstance(raw_address, dict):
+        city = raw_address.get("miejscowosc")
+
     return {
         "nip": nip,
         "organization_name": data.get("nazwa") or data.get("nazwa_pelna") or data.get("name"),
         "organization_status": data.get("status") or data.get("status_podmiotu"),
-        "city": data.get("miasto") or data.get("miejscowosc") or data.get("city"),
-        "address": data.get("adres") or data.get("ulica") or data.get("address"),
+        "city": city if isinstance(city, str) else None,
+        "address": address,
         "krd_status": data.get("krd") or data.get("krd_status") or data.get("status_krd"),
     }
 

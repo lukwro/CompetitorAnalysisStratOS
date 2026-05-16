@@ -34,6 +34,26 @@ def test_map_rejestr_payload_with_krd() -> None:
     assert mapped["krd_status"] == "BRAK WPISU"
 
 
+def test_map_rejestr_payload_with_nested_address_object() -> None:
+    payload = {
+        "data": {
+            "nazwa": "ACME SA",
+            "status": "AKTYWNA",
+            "adres": {
+                "kod": "30-727",
+                "miejscowosc": "Krakow",
+                "ulica": "Pana Tadeusza",
+            },
+            "krd": "BRAK WPISU",
+        }
+    }
+
+    mapped = map_rejestr_payload(payload, "1234567890")
+
+    assert mapped["city"] == "Krakow"
+    assert mapped["address"] == "30-727, Krakow, Pana Tadeusza"
+
+
 def test_create_company_success() -> None:
     response_mock = Mock()
     response_mock.status_code = 200
