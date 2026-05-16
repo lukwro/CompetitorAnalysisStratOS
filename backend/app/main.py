@@ -25,6 +25,7 @@ class CompanyOut(BaseModel):
     nip: str
     organization_name: str | None = None
     organization_status: str | None = None
+    predominant_activity: str | None = None
     city: str | None = None
     address: str | None = None
     krd_status: str | None = None
@@ -57,6 +58,21 @@ def normalize_nip(value: str) -> str:
     return normalized
 
 
+def derive_organization_status(stan: dict | None, fallback: str | None) -> str | None:
+    if not isinstance(stan, dict):
+        return fallback
+
+    if stan.get("czy_wykreslona") is True:
+        return "Wykreślona"
+    if stan.get("w_upadlosci") is True:
+        return "W upadłości"
+    if stan.get("w_likwidacji") is True:
+        return "W likwidacji"
+    if stan.get("w_zawieszeniu") is True:
+        return "W zawieszeniu"
+    return fallback or "Aktywna"
+
+
 def map_rejestr_payload(payload: dict, nip: str) -> dict:
     if not isinstance(payload, dict):
         raise HTTPException(status_code=502, detail="Nieprawidłowy format odpowiedzi z rejestr.io.")
@@ -82,10 +98,19 @@ def map_rejestr_payload(payload: dict, nip: str) -> dict:
     if not isinstance(city, str) and isinstance(raw_address, dict):
         city = raw_address.get("miejscowosc")
 
+    nazwy = data.get("nazwy") if isinstance(data.get("nazwy"), dict) else {}
+    stan = data.get("stan") if isinstance(data.get("stan"), dict) else {}
+
+    fallback_status = data.get("status") or data.get("status_podmiotu")
+    status = derive_organization_status(stan, fallback_status if isinstance(fallback_status, str) else None)
+
+    predominant_activity = stan.get("pkd_przewazajace_dzial") if isinstance(stan.get("pkd_przewazajace_dzial"), str) else None
+
     return {
         "nip": nip,
-        "organization_name": data.get("nazwa") or data.get("nazwa_pelna") or data.get("name"),
-        "organization_status": data.get("status") or data.get("status_podmiotu"),
+        "organization_name": data.get("nazwa") or data.get("nazwa_pelna") or nazwy.get("pelna") or nazwy.get("skrocona") or data.get("name"),
+        "organization_status": status,
+        "predominant_activity": predominant_activity,
         "city": city if isinstance(city, str) else None,
         "address": address,
         "krd_status": data.get("krd") or data.get("krd_status") or data.get("status_krd"),
@@ -104,14 +129,6 @@ def authorization_candidates() -> list[str]:
     if REJESTR_IO_AUTH_FALLBACK_ENABLED and REJESTR_IO_AUTH_SCHEME and REJESTR_IO_API_KEY not in candidates:
         candidates.append(REJESTR_IO_API_KEY)
     return candidates
-
-
-def _mask_auth(value: str) -> str:
-    if not value:
-        return ""
-    if len(value) <= 8:
-        return "***"
-    return f"{value[:4]}...{value[-4:]}"
 
 
 def fetch_rejestr_data(nip: str) -> tuple[dict, dict]:

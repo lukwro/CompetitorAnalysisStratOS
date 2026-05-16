@@ -30,6 +30,7 @@ function addRow(company) {
     company.nip ?? "",
     company.organization_name ?? "-",
     company.organization_status ?? "-",
+    company.predominant_activity ?? "-",
     company.city ?? "-",
     company.address ?? "-",
     company.krd_status ?? "-",
