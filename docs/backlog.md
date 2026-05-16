@@ -49,6 +49,61 @@ Użytkownik może wpisać nazwę firmy, zapisać ją w aplikacji i zobaczyć wyn
 - [x] Obsługa błędów użytkownika
 - [x] Testy jednostkowe walidacji
 - [x] Aktualizacja dokumentacji
+- [x] Review/merge
+
+### Status
+DONE
+
+## [TASK-2] Integracja z rejestr.io po NIP
+
+### Cel biznesowy
+Po wpisaniu NIP użytkownik automatycznie pobiera podstawowe dane organizacji z rejestr.io, co przyspiesza identyfikację podmiotu do analizy konkurencji.
+
+### Zakres
+
+- [x] Dodanie konfiguracji klucza API w zmiennych środowiskowych (`REJESTR_IO_API_KEY`).
+- [x] Dodanie konfiguracji URL endpointu (`REJESTR_IO_BASE_URL`, domyślnie `https://rejestr.io/api/info`).
+- [x] Integracja backendu z endpointem `GET /podstawowe-dane-organizacji` rejestr.io.
+- [x] Przekazanie NIP z formularza do backendu i wywołanie API rejestr.io.
+- [x] Mapowanie odpowiedzi z rejestr.io do modelu odpowiedzi aplikacji.
+- [x] Dodanie informacji o statusie KRD (jeśli dostępny w odpowiedzi rejestr.io) do danych zwracanych na frontend.
+- [x] Obsługa błędów: brak klucza API, timeout, 4xx/5xx z API zewnętrznego.
+- [x] Prezentacja pobranych danych firmy na froncie po poprawnym zapytaniu.
+
+### Minimalny zakres danych do odczytu
+
+- [x] NIP
+- [x] Nazwa organizacji
+- [x] Status podmiotu (jeśli dostępny w odpowiedzi)
+- [x] Miasto / adres (jeśli dostępne w odpowiedzi)
+- [x] Informacja o KRD (jeśli dostępna w odpowiedzi)
+
+### Poza zakresem
+
+- Zapisywanie danych do PostgreSQL.
+- Cache odpowiedzi z rejestr.io.
+- Mechanizm retry z kolejką asynchroniczną.
+- Integracje z innymi rejestrami poza rejestr.io.
+
+### Kryteria akceptacji (AC)
+
+- [x] Użytkownik wpisuje poprawny NIP i wysyła formularz.
+- [x] Backend wywołuje rejestr.io z kluczem API z ENV.
+- [x] Dla poprawnego NIP API aplikacji zwraca dane organizacji.
+- [x] Frontend wyświetla pobrane dane organizacji użytkownikowi.
+- [x] Frontend wyświetla informację o KRD, jeśli została zwrócona przez API.
+- [x] Dla błędu API zewnętrznego użytkownik widzi czytelny komunikat.
+- [x] Dla braku klucza API system zwraca kontrolowany błąd konfiguracyjny.
+
+### Definition of Done (DoD)
+
+- [x] Konfiguracja ENV (`REJESTR_IO_API_KEY`, `REJESTR_IO_BASE_URL`)
+- [x] Kod backendu integracji z rejestr.io
+- [x] Integracja endpointu aplikacji z wywołaniem po NIP
+- [x] Aktualizacja frontendu (prezentacja danych organizacji)
+- [x] Testy unit (walidacja i mapowanie odpowiedzi)
+- [x] Testy integracyjne (mock rejestr.io)
+- [x] Aktualizacja dokumentacji
 - [ ] Review/merge
 
 ### Status

@@ -16,14 +16,22 @@ function showMessage(text, type) {
 function addRow(company) {
   const row = document.createElement("tr");
 
-  const idCell = document.createElement("td");
-  idCell.textContent = String(company.id);
+  const cells = [
+    String(company.id ?? ""),
+    company.nip ?? "",
+    company.organization_name ?? "-",
+    company.organization_status ?? "-",
+    company.city ?? "-",
+    company.address ?? "-",
+    company.krd_status ?? "-",
+  ];
 
-  const nipCell = document.createElement("td");
-  nipCell.textContent = company.nip;
+  cells.forEach((value) => {
+    const cell = document.createElement("td");
+    cell.textContent = value;
+    row.appendChild(cell);
+  });
 
-  row.appendChild(idCell);
-  row.appendChild(nipCell);
   tableBody.appendChild(row);
 }
 
@@ -62,12 +70,12 @@ form.addEventListener("submit", async (event) => {
     const body = await response.json();
 
     if (!response.ok) {
-      throw new Error(body.detail || "Nie udało się zapisać NIP-u.");
+      throw new Error(body.detail || "Nie udało się pobrać danych organizacji.");
     }
 
     addRow(body);
     form.reset();
-    showMessage("NIP zapisany poprawnie.", "success");
+    showMessage("Dane organizacji pobrane poprawnie.", "success");
   } catch (error) {
     showMessage(error.message, "error");
   }

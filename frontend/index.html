@@ -9,12 +9,12 @@
 <body>
   <main class="container">
     <h1>Aplikacja do określania konkurencji</h1>
-    <p>Wpisz NIP, aby zapisać firmę do analizy konkurencyjnej.</p>
+    <p>Wpisz NIP, aby pobrać podstawowe dane organizacji z rejestr.io (w tym informację o KRD, jeśli dostępna).</p>
 
     <form id="company-form" class="form">
       <label for="nip">NIP</label>
       <input id="nip" name="nip" type="text" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required />
-      <button type="submit">Zapisz</button>
+      <button type="submit">Pobierz dane</button>
     </form>
 
     <p id="message" class="message" aria-live="polite"></p>
@@ -24,6 +24,11 @@
         <tr>
           <th>ID</th>
           <th>NIP</th>
+          <th>Nazwa organizacji</th>
+          <th>Status</th>
+          <th>Miasto</th>
+          <th>Adres</th>
+          <th>KRD</th>
         </tr>
       </thead>
       <tbody id="companies-table-body"></tbody>
