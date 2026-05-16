@@ -11,6 +11,7 @@ const debugOutput = document.getElementById("debug-output");
 const openAiTestBtn = document.getElementById("openai-connection-test-btn");
 const openAiResultEl = document.getElementById("openai-connection-result");
 const combinedFlowBtn = document.getElementById("combined-flow-btn");
+const clearCompaniesBtn = document.getElementById("clear-companies-btn");
 
 const competitorForm = document.getElementById("competitor-form");
 const companyNameInput = document.getElementById("company-name");
@@ -246,6 +247,11 @@ combinedFlowBtn.addEventListener("click", async () => {
   } finally {
     setCombinedFlowLoading(false);
   }
+});
+
+clearCompaniesBtn.addEventListener("click", () => {
+  tableBody.innerHTML = "";
+  showMessage("Tabela firm została wyczyszczona.", "success");
 });
 
 fetchCompanies();
