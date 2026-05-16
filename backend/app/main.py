@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 NIP_LENGTH = 10
-REJESTR_IO_BASE_URL = os.getenv("REJESTR_IO_BASE_URL", "https://rejestr.io/api/info")
+REJESTR_IO_BASE_URL = os.getenv("REJESTR_IO_BASE_URL", "https://rejestr.io/api/v2")
 REJESTR_IO_API_KEY = os.getenv("REJESTR_IO_API_KEY", "").strip()
 REJESTR_IO_TIMEOUT_SECONDS = float(os.getenv("REJESTR_IO_TIMEOUT_SECONDS", "10"))
 
@@ -77,17 +77,14 @@ def fetch_rejestr_data(nip: str) -> dict:
     if not REJESTR_IO_API_KEY:
         raise HTTPException(status_code=500, detail="Brak konfiguracji REJESTR_IO_API_KEY.")
 
-    url = f"{REJESTR_IO_BASE_URL.rstrip('/')}/podstawowe-dane-organizacji"
+    url = f"{REJESTR_IO_BASE_URL.rstrip('/')}/org/nip{nip}"
     headers = {
         "X-API-KEY": REJESTR_IO_API_KEY,
-    }
-    params = {
-        "nip": nip,
     }
 
     try:
         with httpx.Client(timeout=REJESTR_IO_TIMEOUT_SECONDS) as client:
-            response = client.get(url, headers=headers, params=params)
+            response = client.get(url, headers=headers)
     except httpx.TimeoutException as exc:
         raise HTTPException(status_code=504, detail="Timeout podczas łączenia z rejestr.io.") from exc
     except httpx.HTTPError as exc:
@@ -98,7 +95,10 @@ def fetch_rejestr_data(nip: str) -> dict:
     if response.status_code >= 500:
         raise HTTPException(status_code=502, detail="rejestr.io jest chwilowo niedostępne.")
     if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail="Błąd odpowiedzi z rejestr.io.")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Błąd odpowiedzi z rejestr.io (HTTP {response.status_code}).",
+        )
 
     try:
         payload = response.json()

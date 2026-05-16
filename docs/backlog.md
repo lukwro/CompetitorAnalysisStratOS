@@ -62,7 +62,7 @@ Po wpisaniu NIP użytkownik automatycznie pobiera podstawowe dane organizacji z 
 ### Zakres
 
 - [x] Dodanie konfiguracji klucza API w zmiennych środowiskowych (`REJESTR_IO_API_KEY`).
-- [x] Dodanie konfiguracji URL endpointu (`REJESTR_IO_BASE_URL`, domyślnie `https://rejestr.io/api/info`).
+- [x] Dodanie konfiguracji URL endpointu (`REJESTR_IO_BASE_URL`, domyślnie `https://rejestr.io/api/v2`).
 - [x] Integracja backendu z endpointem `GET /podstawowe-dane-organizacji` rejestr.io.
 - [x] Przekazanie NIP z formularza do backendu i wywołanie API rejestr.io.
 - [x] Mapowanie odpowiedzi z rejestr.io do modelu odpowiedzi aplikacji.
