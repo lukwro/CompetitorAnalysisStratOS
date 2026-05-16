@@ -57,6 +57,8 @@ def test_map_rejestr_payload_with_nested_address_object() -> None:
 def test_create_company_success() -> None:
     response_mock = Mock()
     response_mock.status_code = 200
+    response_mock.text = '{"data":{"nazwa":"ACME SA"}}'
+    response_mock.headers = {"content-type": "application/json", "server": "mock"}
     response_mock.json.return_value = {
         "data": {
             "nazwa": "ACME SA",
@@ -118,6 +120,8 @@ def test_create_company_returns_timeout_for_upstream_timeout() -> None:
 def test_create_company_returns_502_for_upstream_5xx() -> None:
     response_mock = Mock()
     response_mock.status_code = 503
+    response_mock.text = "upstream unavailable"
+    response_mock.headers = {"content-type": "text/plain", "server": "mock"}
 
     with patch("app.main.REJESTR_IO_API_KEY", "test-key"), patch("httpx.Client.get", return_value=response_mock):
         response = client.post("/api/company", json={"nip": "1234567890"})
@@ -129,6 +133,8 @@ def test_create_company_returns_502_for_upstream_5xx() -> None:
 def test_create_company_returns_404_when_company_not_found() -> None:
     response_mock = Mock()
     response_mock.status_code = 404
+    response_mock.text = "not found"
+    response_mock.headers = {"content-type": "text/plain", "server": "mock"}
 
     with patch("app.main.REJESTR_IO_API_KEY", "test-key"), patch("httpx.Client.get", return_value=response_mock):
         response = client.post("/api/company", json={"nip": "1234567890"})
@@ -140,6 +146,8 @@ def test_create_company_returns_404_when_company_not_found() -> None:
 def test_create_company_returns_502_for_invalid_upstream_payload_shape() -> None:
     response_mock = Mock()
     response_mock.status_code = 200
+    response_mock.text = '["unexpected","shape"]'
+    response_mock.headers = {"content-type": "application/json", "server": "mock"}
     response_mock.json.return_value = ["unexpected", "shape"]
 
     with patch("app.main.REJESTR_IO_API_KEY", "test-key"), patch("httpx.Client.get", return_value=response_mock):

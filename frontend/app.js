@@ -7,10 +7,19 @@ const form = document.getElementById("company-form");
 const nipInput = document.getElementById("nip");
 const messageEl = document.getElementById("message");
 const tableBody = document.getElementById("companies-table-body");
+const debugOutput = document.getElementById("debug-output");
 
 function showMessage(text, type) {
   messageEl.textContent = text;
   messageEl.className = `message ${type}`;
+}
+
+function showDebug(debugData) {
+  if (!debugData) {
+    debugOutput.textContent = "Brak danych debug.";
+    return;
+  }
+  debugOutput.textContent = JSON.stringify(debugData, null, 2);
 }
 
 function addRow(company) {
@@ -76,10 +85,12 @@ form.addEventListener("submit", async (event) => {
     }
 
     if (!response.ok) {
+      showDebug({ request: { method: "POST", path: "/api/company", payload }, response: body });
       throw new Error(body.detail || "Nie udało się pobrać danych organizacji.");
     }
 
     addRow(body);
+    showDebug(body.debug);
     form.reset();
     showMessage("Dane organizacji pobrane poprawnie.", "success");
   } catch (error) {

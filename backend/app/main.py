@@ -28,6 +28,7 @@ class CompanyOut(BaseModel):
     city: str | None = None
     address: str | None = None
     krd_status: str | None = None
+    debug: dict | None = None
 
 
 app = FastAPI(title="CompetitorAnalysisStratOS")
@@ -39,7 +40,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# TASK-1/TASK-2: in-memory store. DB integration is planned in next tasks.
 companies: list[CompanyOut] = []
 ROOT_DIR = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = ROOT_DIR / "frontend"
@@ -101,24 +101,41 @@ def build_authorization_value() -> str:
 def authorization_candidates() -> list[str]:
     primary = build_authorization_value()
     candidates = [primary]
-
-    # Some APIs expect a raw key in Authorization without a scheme.
     if REJESTR_IO_AUTH_FALLBACK_ENABLED and REJESTR_IO_AUTH_SCHEME and REJESTR_IO_API_KEY not in candidates:
         candidates.append(REJESTR_IO_API_KEY)
-
     return candidates
 
 
-def fetch_rejestr_data(nip: str) -> dict:
+def _mask_auth(value: str) -> str:
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "***"
+    return f"{value[:4]}...{value[-4:]}"
+
+
+def fetch_rejestr_data(nip: str) -> tuple[dict, dict]:
     if not REJESTR_IO_API_KEY:
         raise HTTPException(status_code=500, detail="Brak konfiguracji REJESTR_IO_API_KEY.")
 
     url = f"{REJESTR_IO_BASE_URL.rstrip('/')}/org/nip{nip}"
+    debug = {
+        "request": {
+            "method": "GET",
+            "url": url,
+            "auth_candidates": [
+                (f"{REJESTR_IO_AUTH_SCHEME} ***" if i == 0 and REJESTR_IO_AUTH_SCHEME else "***")
+                for i, _ in enumerate(authorization_candidates())
+            ],
+            "timeout_seconds": REJESTR_IO_TIMEOUT_SECONDS,
+        }
+    }
+
     try:
         with httpx.Client(timeout=REJESTR_IO_TIMEOUT_SECONDS) as client:
             response = None
             for auth_value in authorization_candidates():
-                response = client.get(url, headers={"Authorization": auth_value})
+                response = client.get(url, headers={"Authorization": auth_value, "Accept": "application/json"})
                 if response.status_code not in (401, 403):
                     break
     except httpx.TimeoutException as exc:
@@ -128,6 +145,16 @@ def fetch_rejestr_data(nip: str) -> dict:
 
     if response is None:
         raise HTTPException(status_code=502, detail="Nie udało się uzyskać odpowiedzi z rejestr.io.")
+
+    text_preview = response.text[:4000] if response.text else ""
+    debug["response"] = {
+        "status_code": response.status_code,
+        "headers": {
+            "content-type": response.headers.get("content-type"),
+            "server": response.headers.get("server"),
+        },
+        "body_preview": text_preview,
+    }
 
     if response.status_code == 404:
         raise HTTPException(status_code=404, detail="Nie znaleziono danych organizacji dla podanego NIP.")
@@ -162,7 +189,8 @@ def fetch_rejestr_data(nip: str) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=502, detail="Nieprawidłowa odpowiedź JSON z rejestr.io.") from exc
 
-    return map_rejestr_payload(payload, nip)
+    debug["response"]["json"] = payload
+    return map_rejestr_payload(payload, nip), debug
 
 
 @app.post("/api/company", response_model=CompanyOut, status_code=201)
@@ -172,8 +200,8 @@ def create_company(payload: CompanyIn) -> CompanyOut:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    company_data = fetch_rejestr_data(normalized_nip)
-    company = CompanyOut(id=len(companies) + 1, **company_data)
+    company_data, debug = fetch_rejestr_data(normalized_nip)
+    company = CompanyOut(id=len(companies) + 1, debug=debug, **company_data)
     companies.append(company)
     return company
 
