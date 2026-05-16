@@ -365,3 +365,103 @@ Kroki:
 Oczekiwany rezultat:
 - Endpoint zwraca poprawny status i payload.
 - Test nie wykonuje realnego połączenia do OpenAI.
+
+## TASK-5: Jednym przyciskiem - pobranie danych firmy + wyszukiwanie konkurencji
+
+### [ ] TC-501 - Pełny sukces flow 2-krokowego
+Cel: Potwierdzenie, że jeden przycisk uruchamia oba kroki i kończy się pełnym sukcesem.
+Kroki:
+1. Wpisz poprawny NIP firmy z dostępnymi danymi.
+2. Kliknij `Pobierz dane i znajdź konkurencję`.
+Oczekiwany rezultat:
+- Frontend wywołuje `POST /api/company`.
+- Po sukcesie kroku 1 frontend wywołuje `POST /api/competitors/find`.
+- GUI pokazuje dane firmy i listę konkurentów.
+- Komunikat końcowy wskazuje pełny sukces procesu.
+
+### [ ] TC-502 - Błąd kroku 1 blokuje krok 2
+Cel: Weryfikacja, że przy błędzie pobrania danych firmy nie jest uruchamiane wyszukiwanie konkurencji.
+Kroki:
+1. Podaj błędny NIP lub zasymuluj błąd `POST /api/company`.
+2. Kliknij przycisk flow łączonego.
+Oczekiwany rezultat:
+- Krok 1 kończy się błędem.
+- `POST /api/competitors/find` nie jest wywoływany.
+- Użytkownik widzi czytelny błąd kroku 1.
+
+### [ ] TC-503 - Sukces kroku 1 i błąd kroku 2 (partial success)
+Cel: Potwierdzenie poprawnej obsługi błędu częściowego.
+Kroki:
+1. Zasymuluj sukces `POST /api/company`.
+2. Zasymuluj błąd `POST /api/competitors/find`.
+3. Kliknij przycisk flow łączonego.
+Oczekiwany rezultat:
+- Dane firmy są widoczne w UI.
+- Lista konkurencji nie jest wyświetlona lub jest pusta.
+- Użytkownik widzi czytelny błąd kroku 2.
+- Status procesu wskazuje wynik częściowy (`partial`).
+
+### [ ] TC-504 - Poprawne mapowanie danych z kroku 1 do kroku 2
+Cel: Sprawdzenie mapowania `organization_name` i `predominant_activity`.
+Kroki:
+1. Zasymuluj odpowiedź kroku 1 z konkretną nazwą organizacji i działalnością.
+2. Uruchom flow jednym przyciskiem.
+3. Sprawdź payload wysłany do `POST /api/competitors/find`.
+Oczekiwany rezultat:
+- `company_name` = `organization_name` z kroku 1.
+- `main_activity` = `predominant_activity` z kroku 1 (lub uzgodniony fallback).
+
+### [ ] TC-505 - Fallback dla braku `predominant_activity`
+Cel: Potwierdzenie działania fallbacku, gdy krok 1 nie zwraca przeważającej działalności.
+Kroki:
+1. Zasymuluj odpowiedź `POST /api/company` bez `predominant_activity`.
+2. Uruchom flow jednym przyciskiem.
+Oczekiwany rezultat:
+- Krok 2 dostaje poprawną wartość `main_activity` z fallbacku.
+- Flow nie przerywa się wyłącznie z powodu braku `predominant_activity` w kroku 1.
+
+### [ ] TC-506 - Stan loading dla całego procesu
+Cel: Weryfikacja spójnego stanu ładowania podczas obu wywołań.
+Kroki:
+1. Uruchom flow i opóźnij odpowiedzi API.
+2. Obserwuj stan UI podczas trwania procesu.
+Oczekiwany rezultat:
+- Widoczny jest komunikat/informacja o trwającym procesie.
+- Przycisk akcji jest zablokowany na czas wykonania flow.
+- Po zakończeniu proces wraca do stanu gotowości.
+
+### [ ] TC-507 - Ochrona przed wielokrotnym kliknięciem
+Cel: Sprawdzenie, że użytkownik nie uruchamia równoległych duplikatów flow.
+Kroki:
+1. Wielokrotnie kliknij przycisk podczas aktywnego ładowania.
+2. Sprawdź liczbę wysłanych żądań.
+Oczekiwany rezultat:
+- W danym momencie realizowana jest tylko jedna instancja flow.
+- Brak duplikatów wpisów i sprzecznych komunikatów.
+
+### [ ] TC-508 - Debug request/response dla błędu kroku 1
+Cel: Potwierdzenie, że debug pokazuje diagnostykę dla pierwszego kroku.
+Kroki:
+1. Zasymuluj błąd `POST /api/company`.
+2. Uruchom flow.
+Oczekiwany rezultat:
+- Sekcja debug zawiera request/response kroku 1.
+- Dane są czytelne i bez wartości wrażliwych.
+
+### [ ] TC-509 - Debug request/response dla błędu kroku 2
+Cel: Potwierdzenie diagnostyki dla drugiego kroku.
+Kroki:
+1. Zasymuluj sukces kroku 1 i błąd kroku 2.
+2. Uruchom flow.
+Oczekiwany rezultat:
+- Sekcja debug zawiera request/response kroku 2.
+- Dane firmy z kroku 1 pozostają widoczne.
+
+### [ ] TC-510 - Test integracyjny frontendu flow łączonego
+Cel: Potwierdzenie działania pełnej ścieżki UI z mockowanymi API.
+Kroki:
+1. Uruchom test integracyjny frontendu z mockami dla obu endpointów.
+2. Zasymuluj scenariusze: success, error kroku 1, error kroku 2.
+Oczekiwany rezultat:
+- Dla każdego scenariusza UI pokazuje poprawny stan i komunikaty.
+- Kolejność wywołań API jest zgodna z założeniem (krok 1 -> krok 2).

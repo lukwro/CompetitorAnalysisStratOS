@@ -335,3 +335,94 @@ def test_find_competitors_invalid_model_content_format() -> None:
 
     assert response.status_code == 502
     assert "json" in response.json()["detail"].lower()
+
+
+def test_combined_flow_success_two_step() -> None:
+    rejestr_response = Mock()
+    rejestr_response.status_code = 200
+    rejestr_response.text = '{"data":{"nazwa":"ACME SA"}}'
+    rejestr_response.headers = {"content-type": "application/json", "server": "mock"}
+    rejestr_response.json.return_value = {
+        "data": {
+            "nazwa": "ACME SA",
+            "status": "AKTYWNA",
+            "miasto": "Warszawa",
+            "adres": "ul. Prosta 1",
+            "stan": {"pkd_przewazajace_dzial": "Produkcja oprogramowania"},
+        }
+    }
+
+    openai_response = Mock()
+    openai_response.status_code = 200
+    openai_response.json.return_value = {
+        "choices": [
+            {
+                "message": {
+                    "content": '{"competitors":[{"name":"Firma A","similarity_reason":"Ta sama grupa klientów","confidence":"HIGH"},{"name":"Firma B","similarity_reason":"Podobny model usługowy","confidence":"MEDIUM"},{"name":"Firma C","similarity_reason":"Zbliżony segment SMB","confidence":"LOW"}]}'
+                }
+            }
+        ]
+    }
+
+    with patch("app.main.REJESTR_IO_API_KEY", "test-key"), patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.OPENAI_MODEL", "gpt-4o-mini"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.get.return_value = rejestr_response
+        client_instance.post.return_value = openai_response
+
+        company_response = client.post("/api/company", json={"nip": "1234567890"})
+        assert company_response.status_code == 201
+        company_body = company_response.json()
+
+        competitors_response = client.post(
+            "/api/competitors/find",
+            json={
+                "company_name": company_body["organization_name"],
+                "main_activity": company_body["predominant_activity"],
+                "limit": 5,
+            },
+        )
+
+    assert competitors_response.status_code == 200
+    competitors_body = competitors_response.json()
+    assert len(competitors_body["competitors"]) >= 3
+
+
+def test_combined_flow_partial_second_step_failure() -> None:
+    rejestr_response = Mock()
+    rejestr_response.status_code = 200
+    rejestr_response.text = '{"data":{"nazwa":"ACME SA"}}'
+    rejestr_response.headers = {"content-type": "application/json", "server": "mock"}
+    rejestr_response.json.return_value = {
+        "data": {
+            "nazwa": "ACME SA",
+            "status": "AKTYWNA",
+            "miasto": "Warszawa",
+            "adres": "ul. Prosta 1",
+            "stan": {"pkd_przewazajace_dzial": "Produkcja oprogramowania"},
+        }
+    }
+
+    openai_response = Mock()
+    openai_response.status_code = 503
+    openai_response.json.return_value = {"error": "upstream unavailable"}
+
+    with patch("app.main.REJESTR_IO_API_KEY", "test-key"), patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.OPENAI_MODEL", "gpt-4o-mini"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.get.return_value = rejestr_response
+        client_instance.post.return_value = openai_response
+
+        company_response = client.post("/api/company", json={"nip": "1234567890"})
+        assert company_response.status_code == 201
+        company_body = company_response.json()
+
+        competitors_response = client.post(
+            "/api/competitors/find",
+            json={
+                "company_name": company_body["organization_name"],
+                "main_activity": company_body["predominant_activity"],
+                "limit": 5,
+            },
+        )
+
+    assert competitors_response.status_code == 502
+    assert "niedostępne" in competitors_response.json()["detail"].lower()

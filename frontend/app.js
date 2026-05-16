@@ -10,6 +10,7 @@ const tableBody = document.getElementById("companies-table-body");
 const debugOutput = document.getElementById("debug-output");
 const openAiTestBtn = document.getElementById("openai-connection-test-btn");
 const openAiResultEl = document.getElementById("openai-connection-result");
+const combinedFlowBtn = document.getElementById("combined-flow-btn");
 
 const competitorForm = document.getElementById("competitor-form");
 const companyNameInput = document.getElementById("company-name");
@@ -17,6 +18,7 @@ const mainActivityInput = document.getElementById("main-activity");
 const competitorLimitInput = document.getElementById("competitor-limit");
 const competitorMessageEl = document.getElementById("competitor-message");
 const competitorsTableBody = document.getElementById("competitors-table-body");
+let isCombinedFlowRunning = false;
 
 function showMessage(text, type) {
   messageEl.textContent = text;
@@ -39,6 +41,12 @@ function showDebug(debugData) {
 function showOpenAiConnectionResult(text, type) {
   openAiResultEl.textContent = text;
   openAiResultEl.className = `message ${type}`;
+}
+
+function setCombinedFlowLoading(isLoading) {
+  isCombinedFlowRunning = isLoading;
+  combinedFlowBtn.disabled = isLoading;
+  combinedFlowBtn.textContent = isLoading ? "Przetwarzanie..." : "Pobierz dane i znajdź konkurencję";
 }
 
 function addRow(company) {
@@ -79,6 +87,26 @@ function renderCompetitors(competitors) {
 
     competitorsTableBody.appendChild(row);
   });
+}
+
+async function readResponseBody(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+  return { detail: (await response.text()) || "Nieznany błąd serwera." };
+}
+
+async function postJson(path, payload) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await readResponseBody(response);
+  return { response, body };
 }
 
 async function fetchCompanies() {
@@ -128,21 +156,7 @@ form.addEventListener("submit", async (event) => {
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/company`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    let body;
-    if (contentType.includes("application/json")) {
-      body = await response.json();
-    } else {
-      body = { detail: (await response.text()) || "Nieznany błąd serwera." };
-    }
+    const { response, body } = await postJson("/api/company", payload);
 
     if (!response.ok) {
       showDebug({ request: { method: "POST", path: "/api/company", payload }, response: body });
@@ -170,21 +184,7 @@ competitorForm.addEventListener("submit", async (event) => {
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/competitors/find`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    let body;
-    if (contentType.includes("application/json")) {
-      body = await response.json();
-    } else {
-      body = { detail: (await response.text()) || "Nieznany błąd serwera." };
-    }
+    const { response, body } = await postJson("/api/competitors/find", payload);
 
     if (!response.ok) {
       showDebug({ request: { method: "POST", path: "/api/competitors/find", payload }, response: body });
@@ -195,6 +195,56 @@ competitorForm.addEventListener("submit", async (event) => {
     showCompetitorMessage("Lista konkurencji została wygenerowana.", "success");
   } catch (error) {
     showCompetitorMessage(error.message, "error");
+  }
+});
+
+combinedFlowBtn.addEventListener("click", async () => {
+  if (isCombinedFlowRunning) {
+    return;
+  }
+
+  setCombinedFlowLoading(true);
+  showMessage("Pobieram dane firmy...", "");
+  showCompetitorMessage("", "");
+  competitorsTableBody.innerHTML = "";
+
+  const companyPayload = { nip: nipInput.value };
+  try {
+    const companyResult = await postJson("/api/company", companyPayload);
+    if (!companyResult.response.ok) {
+      showDebug({ request: { method: "POST", path: "/api/company", payload: companyPayload }, response: companyResult.body });
+      throw new Error(companyResult.body.detail || "Nie udało się pobrać danych organizacji.");
+    }
+
+    addRow(companyResult.body);
+    showDebug(companyResult.body.debug);
+    showMessage("Dane firmy pobrane. Trwa wyszukiwanie konkurencji...", "success");
+
+    const companyName = (companyResult.body.organization_name || "").trim();
+    const mainActivityFallback = (mainActivityInput.value || "").trim();
+    const mainActivity = (companyResult.body.predominant_activity || mainActivityFallback).trim();
+    const limitValue = Number(competitorLimitInput.value);
+    const competitorPayload = {
+      company_name: companyName,
+      main_activity: mainActivity,
+      limit: Number.isNaN(limitValue) ? undefined : limitValue,
+    };
+
+    const competitorsResult = await postJson("/api/competitors/find", competitorPayload);
+    if (!competitorsResult.response.ok) {
+      showDebug({ request: { method: "POST", path: "/api/competitors/find", payload: competitorPayload }, response: competitorsResult.body });
+      showCompetitorMessage(competitorsResult.body.detail || "Nie udało się wyszukać konkurencji.", "error");
+      showMessage("Dane firmy pobrane, ale wyszukiwanie konkurencji nie powiodło się.", "error");
+      return;
+    }
+
+    renderCompetitors(competitorsResult.body.competitors || []);
+    showCompetitorMessage("Lista konkurencji została wygenerowana.", "success");
+    showMessage("Proces zakończony sukcesem: pobrano dane i konkurencję.", "success");
+  } catch (error) {
+    showMessage(error.message, "error");
+  } finally {
+    setCombinedFlowLoading(false);
   }
 });
 

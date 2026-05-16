@@ -178,6 +178,58 @@ Potwierdzenie, że aplikacja ma poprawnie skonfigurowane połączenie z OpenAI A
 ### Status
 DONE
 
+## [TASK-5] Jednym przyciskiem: pobranie danych firmy + wyszukiwanie konkurencji
+
+### Cel biznesowy
+Użytkownik uruchamia cały proces jednym kliknięciem: najpierw pobranie danych firmy po NIP, a następnie automatyczne wyszukanie konkurencji na podstawie nazwy firmy i przeważającej działalności.
+
+### Zakres
+
+- [x] Dodanie nowego przycisku akcji w GUI, np. `Pobierz dane i znajdź konkurencję`.
+- [x] Implementacja jednego flow na froncie:
+  - krok 1: wywołanie `POST /api/company`,
+  - krok 2: po sukcesie wywołanie `POST /api/competitors/find` z danymi z kroku 1.
+- [x] Mapowanie danych wejściowych do kroku 2:
+  - `company_name` z `organization_name`,
+  - `main_activity` z `predominant_activity` (lub fallback z inputu użytkownika, jeśli brak).
+- [x] Obsługa stanu ładowania dla całego procesu (loading, success, error).
+- [x] Obsługa błędów częściowych:
+  - gdy krok 1 nie powiedzie się, krok 2 nie jest uruchamiany,
+  - gdy krok 1 powiedzie się, ale krok 2 nie, użytkownik widzi dane firmy i osobny błąd konkurencji.
+- [x] Ujednolicenie komunikatów UI i debug request/response dla obu kroków.
+
+### Minimalny zakres danych do odczytu
+
+- [x] Dane firmy zwrócone przez `POST /api/company`.
+- [x] Lista konkurentów zwrócona przez `POST /api/competitors/find`.
+- [x] Status procesu łączonego (`success` / `partial` / `error`).
+
+### Poza zakresem
+
+- Tworzenie nowego endpointu backendowego orkiestrującego oba kroki.
+- Asynchroniczne kolejki zadań i retry background jobs.
+- Zapisywanie historii łączonych uruchomień do bazy.
+
+### Kryteria akceptacji (AC)
+
+- [x] Użytkownik może uruchomić pobranie danych firmy i wyszukiwanie konkurencji jednym przyciskiem.
+- [x] Po poprawnym wykonaniu obu kroków GUI pokazuje dane firmy i listę konkurencji.
+- [x] W przypadku błędu kroku 1 krok 2 nie jest wykonywany.
+- [x] W przypadku błędu kroku 2 dane firmy pozostają widoczne, a błąd konkurencji jest czytelny.
+- [x] Debug pokazuje request/response dla kroku, który zakończył się błędem.
+
+### Definition of Done (DoD)
+
+- [x] Aktualizacja frontendu (przycisk + logika orchestracji 2 kroków)
+- [x] Obsługa stanów UI procesu łączonego
+- [x] Obsługa błędów częściowych
+- [x] Testy UI/integracyjne flow 2-krokowego
+- [x] Aktualizacja dokumentacji
+- [x] Review/merge
+
+### Status
+DONE
+
 ## [TASK-4] Wyszukiwanie konkurencji po nazwie firmy i dominującej działalności
 
 ### Cel biznesowy
