@@ -1,4 +1,5 @@
-﻿import os
+﻿import json
+import os
 from pathlib import Path
 
 import httpx
@@ -16,6 +17,7 @@ REJESTR_IO_AUTH_FALLBACK_ENABLED = os.getenv("REJESTR_IO_AUTH_FALLBACK_ENABLED",
 REJESTR_IO_TIMEOUT_SECONDS = float(os.getenv("REJESTR_IO_TIMEOUT_SECONDS", "10"))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "").strip()
 OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "10"))
 
 
@@ -39,6 +41,24 @@ class OpenAIConnectionOut(BaseModel):
     status: str
     detail: str
     provider: str = "openai"
+
+
+class CompetitorFindIn(BaseModel):
+    company_name: str | None = None
+    main_activity: str | None = None
+    limit: int | None = None
+
+
+class CompetitorItemOut(BaseModel):
+    name: str
+    similarity_reason: str
+    confidence: str
+
+
+class CompetitorFindOut(BaseModel):
+    input_company: str
+    input_main_activity: str
+    competitors: list[CompetitorItemOut]
 
 
 app = FastAPI(title="CompetitorAnalysisStratOS")
@@ -65,6 +85,23 @@ def normalize_nip(value: str) -> str:
     if not normalized.isdigit() or len(normalized) != NIP_LENGTH:
         raise ValueError("NIP musi zawierać dokładnie 10 cyfr.")
     return normalized
+
+
+def normalize_required_text(value: str | None, field_name: str, max_length: int) -> str:
+    normalized = (value or "").strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail=f"Pole '{field_name}' jest wymagane.")
+    if len(normalized) > max_length:
+        raise HTTPException(status_code=400, detail=f"Pole '{field_name}' może mieć maksymalnie {max_length} znaków.")
+    return normalized
+
+
+def normalize_limit(value: int | None) -> int:
+    if value is None:
+        return 5
+    if value < 3 or value > 10:
+        raise HTTPException(status_code=400, detail="Pole 'limit' musi być w zakresie 3-10.")
+    return value
 
 
 def derive_organization_status(stan: dict | None, fallback: str | None) -> str | None:
@@ -253,6 +290,127 @@ def check_openai_connection() -> OpenAIConnectionOut:
     return OpenAIConnectionOut(status="OK", detail="Połączenie z OpenAI API działa poprawnie.")
 
 
+def parse_json_from_text(text: str) -> dict:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if len(lines) >= 3:
+            cleaned = "\n".join(lines[1:-1]).strip()
+    try:
+        payload = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=502, detail="Model zwrócił nieprawidłowy format JSON.") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=502, detail="Model zwrócił nieprawidłowy format odpowiedzi.")
+    return payload
+
+
+def normalize_confidence(value: object) -> str:
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if normalized in {"LOW", "MEDIUM", "HIGH"}:
+            return normalized
+        mapping = {"NISKIE": "LOW", "SREDNIE": "MEDIUM", "ŚREDNIE": "MEDIUM", "WYSOKIE": "HIGH"}
+        if normalized in mapping:
+            return mapping[normalized]
+    return "MEDIUM"
+
+
+def parse_competitors_response(payload: dict, company_name: str, main_activity: str, limit: int) -> CompetitorFindOut:
+    competitors_raw = payload.get("competitors")
+    if not isinstance(competitors_raw, list):
+        raise HTTPException(status_code=502, detail="Model zwrócił nieprawidłową listę konkurentów.")
+
+    competitors: list[CompetitorItemOut] = []
+    for item in competitors_raw:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name", "")).strip()
+        reason = str(item.get("similarity_reason", "")).strip()
+        if not name or not reason:
+            continue
+        competitors.append(
+            CompetitorItemOut(
+                name=name[:200],
+                similarity_reason=reason[:500],
+                confidence=normalize_confidence(item.get("confidence")),
+            )
+        )
+        if len(competitors) >= limit:
+            break
+
+    if len(competitors) < 3:
+        raise HTTPException(status_code=502, detail="Model zwrócił zbyt mało poprawnych wyników konkurencji.")
+
+    return CompetitorFindOut(
+        input_company=company_name,
+        input_main_activity=main_activity,
+        competitors=competitors,
+    )
+
+
+def find_competitors_with_openai(company_name: str, main_activity: str, limit: int) -> CompetitorFindOut:
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="Brak konfiguracji OPENAI_API_KEY.")
+    if not OPENAI_MODEL:
+        raise HTTPException(status_code=500, detail="Brak konfiguracji OPENAI_MODEL.")
+
+    url = f"{OPENAI_BASE_URL.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    system_prompt = (
+        "Jesteś analitykiem rynku. Zwracaj wyłącznie poprawny JSON bez markdown. "
+        "Znajdź realnych konkurentów firmy na podstawie nazwy i dominującej działalności."
+    )
+    user_prompt = (
+        f"Nazwa firmy: {company_name}\n"
+        f"Dominująca działalność: {main_activity}\n"
+        f"Liczba wyników: {limit}\n\n"
+        "Zwróć JSON w schemacie: "
+        '{"competitors":[{"name":"...","similarity_reason":"...","confidence":"LOW|MEDIUM|HIGH"}]}'
+    )
+    body = {
+        "model": OPENAI_MODEL,
+        "temperature": 0.2,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+
+    try:
+        with httpx.Client(timeout=OPENAI_TIMEOUT_SECONDS) as client:
+            response = client.post(url, headers=headers, json=body)
+    except httpx.TimeoutException as exc:
+        raise HTTPException(status_code=504, detail="Timeout podczas łączenia z OpenAI API.") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Błąd połączenia z OpenAI API.") from exc
+
+    if response.status_code >= 500:
+        raise HTTPException(status_code=502, detail="OpenAI API jest chwilowo niedostępne.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Błąd odpowiedzi z OpenAI API (HTTP {response.status_code}).")
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Nieprawidłowa odpowiedź JSON z OpenAI API.") from exc
+
+    try:
+        content = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise HTTPException(status_code=502, detail="Nieprawidłowy format odpowiedzi z OpenAI API.") from exc
+
+    if not isinstance(content, str) or not content.strip():
+        raise HTTPException(status_code=502, detail="OpenAI API zwróciło pustą odpowiedź.")
+
+    parsed = parse_json_from_text(content)
+    return parse_competitors_response(parsed, company_name, main_activity, limit)
+
+
 @app.post("/api/company", response_model=CompanyOut, status_code=201)
 def create_company(payload: CompanyIn) -> CompanyOut:
     try:
@@ -276,6 +434,15 @@ def openai_connection_test() -> OpenAIConnectionOut:
     return check_openai_connection()
 
 
+@app.post("/api/competitors/find", response_model=CompetitorFindOut)
+def find_competitors(payload: CompetitorFindIn) -> CompetitorFindOut:
+    company_name = normalize_required_text(payload.company_name, "company_name", 200)
+    main_activity = normalize_required_text(payload.main_activity, "main_activity", 300)
+    limit = normalize_limit(payload.limit)
+    return find_competitors_with_openai(company_name, main_activity, limit)
+
+
 @app.get("/", include_in_schema=False)
 def serve_frontend() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "index.html")
+

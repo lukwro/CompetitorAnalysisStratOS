@@ -216,3 +216,122 @@ def test_openai_connection_test_invalid_payload_shape() -> None:
 
     assert response.status_code == 502
     assert "format" in response.json()["detail"].lower()
+
+
+def test_find_competitors_success() -> None:
+    response_mock = Mock()
+    response_mock.status_code = 200
+    response_mock.json.return_value = {
+        "choices": [
+            {
+                "message": {
+                    "content": '{"competitors":[{"name":"Firma A","similarity_reason":"Ta sama grupa klientów","confidence":"HIGH"},{"name":"Firma B","similarity_reason":"Podobny model usługowy","confidence":"MEDIUM"},{"name":"Firma C","similarity_reason":"Zbliżony segment SMB","confidence":"LOW"}]}'
+                }
+            }
+        ]
+    }
+
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.OPENAI_MODEL", "gpt-4o-mini"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.post.return_value = response_mock
+        response = client.post(
+            "/api/competitors/find",
+            json={"company_name": "Acme", "main_activity": "Produkcja oprogramowania", "limit": 3},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["input_company"] == "Acme"
+    assert body["input_main_activity"] == "Produkcja oprogramowania"
+    assert len(body["competitors"]) == 3
+    assert body["competitors"][0]["name"] == "Firma A"
+
+
+def test_find_competitors_rejects_empty_company_name() -> None:
+    response = client.post(
+        "/api/competitors/find",
+        json={"company_name": "   ", "main_activity": "Produkcja oprogramowania"},
+    )
+
+    assert response.status_code == 400
+    assert "company_name" in response.json()["detail"]
+
+
+def test_find_competitors_rejects_empty_main_activity() -> None:
+    response = client.post(
+        "/api/competitors/find",
+        json={"company_name": "Acme", "main_activity": " "},
+    )
+
+    assert response.status_code == 400
+    assert "main_activity" in response.json()["detail"]
+
+
+def test_find_competitors_rejects_invalid_limit() -> None:
+    response = client.post(
+        "/api/competitors/find",
+        json={"company_name": "Acme", "main_activity": "Produkcja oprogramowania", "limit": 2},
+    )
+
+    assert response.status_code == 400
+    assert "3-10" in response.json()["detail"]
+
+
+def test_find_competitors_without_openai_model() -> None:
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.OPENAI_MODEL", ""):
+        response = client.post(
+            "/api/competitors/find",
+            json={"company_name": "Acme", "main_activity": "Produkcja oprogramowania"},
+        )
+
+    assert response.status_code == 500
+    assert "OPENAI_MODEL" in response.json()["detail"]
+
+
+def test_find_competitors_timeout() -> None:
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.OPENAI_MODEL", "gpt-4o-mini"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.post.side_effect = httpx.TimeoutException("timeout")
+        response = client.post(
+            "/api/competitors/find",
+            json={"company_name": "Acme", "main_activity": "Produkcja oprogramowania"},
+        )
+
+    assert response.status_code == 504
+    assert "Timeout" in response.json()["detail"]
+
+
+def test_find_competitors_invalid_openai_payload_shape() -> None:
+    response_mock = Mock()
+    response_mock.status_code = 200
+    response_mock.json.return_value = {"unexpected": "shape"}
+
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.OPENAI_MODEL", "gpt-4o-mini"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.post.return_value = response_mock
+        response = client.post(
+            "/api/competitors/find",
+            json={"company_name": "Acme", "main_activity": "Produkcja oprogramowania"},
+        )
+
+    assert response.status_code == 502
+    assert "format" in response.json()["detail"].lower()
+
+
+def test_find_competitors_invalid_model_content_format() -> None:
+    response_mock = Mock()
+    response_mock.status_code = 200
+    response_mock.json.return_value = {
+        "choices": [{"message": {"content": "to nie jest json"}}]
+    }
+
+    with patch("app.main.OPENAI_API_KEY", "openai-key"), patch("app.main.OPENAI_MODEL", "gpt-4o-mini"), patch("app.main.httpx.Client") as client_mock:
+        client_instance = client_mock.return_value.__enter__.return_value
+        client_instance.post.return_value = response_mock
+        response = client.post(
+            "/api/competitors/find",
+            json={"company_name": "Acme", "main_activity": "Produkcja oprogramowania"},
+        )
+
+    assert response.status_code == 502
+    assert "json" in response.json()["detail"].lower()

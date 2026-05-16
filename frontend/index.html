@@ -40,6 +40,33 @@
       <tbody id="companies-table-body"></tbody>
     </table>
 
+    <h2>Wyszukiwanie konkurencji</h2>
+    <form id="competitor-form" class="form">
+      <label for="company-name">Nazwa firmy</label>
+      <input id="company-name" name="company-name" type="text" maxlength="200" required />
+
+      <label for="main-activity">Przeważająca działalność</label>
+      <input id="main-activity" name="main-activity" type="text" maxlength="300" required />
+
+      <label for="competitor-limit">Limit wyników (3-10)</label>
+      <input id="competitor-limit" name="competitor-limit" type="number" min="3" max="10" value="5" />
+
+      <button type="submit">Znajdź konkurencję</button>
+    </form>
+
+    <p id="competitor-message" class="message" aria-live="polite"></p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Konkurent</th>
+          <th>Uzasadnienie</th>
+          <th>Pewność</th>
+        </tr>
+      </thead>
+      <tbody id="competitors-table-body"></tbody>
+    </table>
+
     <h2>Debug request/response</h2>
     <pre id="debug-output">Brak danych debug.</pre>
   </main>
@@ -47,3 +74,4 @@
   <script src="/static/app.js"></script>
 </body>
 </html>
+

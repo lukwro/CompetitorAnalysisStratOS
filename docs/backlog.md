@@ -122,11 +122,19 @@ Potwierdzenie, że aplikacja ma poprawnie skonfigurowane połączenie z OpenAI A
 - [ ] Wywołanie minimalnego requestu do OpenAI potwierdzającego dostępność API.
 - [ ] Obsługa błędów: brak klucza, timeout, 4xx/5xx z OpenAI.
 - [ ] Prezentacja wyniku testu połączenia w GUI (success/error).
+- [x] Dodanie konfiguracji klucza OpenAI w zmiennych środowiskowych (`OPENAI_API_KEY`).
+- [x] Dodanie konfiguracji URL API (`OPENAI_BASE_URL`, domyślnie `https://api.openai.com/v1`).
+- [x] Dodanie prostego endpointu backendu do testu połączenia z OpenAI.
+- [x] Wywołanie minimalnego requestu do OpenAI potwierdzającego dostępność API.
+- [x] Obsługa błędów: brak klucza, timeout, 4xx/5xx z OpenAI.
+- [x] Prezentacja wyniku testu połączenia w GUI (success/error).
 
 ### Minimalny zakres danych do odczytu
 
 - [ ] Status połączenia (`OK` / `ERROR`)
 - [ ] Komunikat techniczny (skrót odpowiedzi lub błąd)
+- [x] Status połączenia (`OK` / `ERROR`)
+- [x] Komunikat techniczny (skrót odpowiedzi lub błąd)
 
 ### Poza zakresem
 
@@ -142,6 +150,11 @@ Potwierdzenie, że aplikacja ma poprawnie skonfigurowane połączenie z OpenAI A
 - [ ] Frontend pokazuje wynik testu połączenia (success/error).
 - [ ] Dla błędu OpenAI użytkownik widzi czytelny komunikat.
 - [ ] Dla braku klucza API system zwraca kontrolowany błąd konfiguracyjny.
+- [x] System odczytuje `OPENAI_API_KEY` z ENV i nie loguje klucza.
+- [x] Endpoint testowy zwraca `OK` dla poprawnej konfiguracji i dostępnego API.
+- [x] Frontend pokazuje wynik testu połączenia (success/error).
+- [x] Dla błędu OpenAI użytkownik widzi czytelny komunikat.
+- [x] Dla braku klucza API system zwraca kontrolowany błąd konfiguracyjny.
 
 ### Definition of Done (DoD)
 
@@ -153,6 +166,84 @@ Potwierdzenie, że aplikacja ma poprawnie skonfigurowane połączenie z OpenAI A
 - [ ] Testy integracyjne (mock OpenAI API)
 - [ ] Aktualizacja dokumentacji
 - [ ] Review/merge
+- [x] Konfiguracja ENV (`OPENAI_API_KEY`, `OPENAI_BASE_URL`)
+- [x] Kod backendu integracji z OpenAI API
+- [x] Endpoint API testu połączenia
+- [x] Aktualizacja frontendu (przycisk/sekcja testu połączenia)
+- [x] Testy unit/integracyjne endpointu testowego (mock OpenAI API)
+- [x] Testy integracyjne (mock OpenAI API)
+- [x] Aktualizacja dokumentacji
+- [x] Review/merge
 
 ### Status
-TODO
+DONE
+
+## [TASK-4] Wyszukiwanie konkurencji po nazwie firmy i dominującej działalności
+
+### Cel biznesowy
+Użytkownik po podaniu nazwy firmy i jej dominującej działalności otrzymuje listę najbardziej prawdopodobnych konkurentów, aby szybciej rozpocząć analizę rynku.
+
+### Zakres
+
+- [x] Rozszerzenie formularza o pole `przeważająca działalność` (opis tekstowy lub kod PKD).
+- [x] Dodanie endpointu backendu `POST /api/competitors/find`.
+- [x] Wykorzystanie komunikacji z OpenAI API do generowania listy konkurentów.
+- [x] Konfiguracja integracji OpenAI:
+  - `OPENAI_MODEL` (konfigurowalny model do analizy konkurencji).
+- [x] Walidacja wejścia:
+  - `company_name` wymagane, max 200 znaków,
+  - `main_activity` wymagane, max 300 znaków,
+  - trimowanie białych znaków.
+- [x] Przygotowanie promptu/system instruction dla modelu, który:
+  - identyfikuje branżę na podstawie wejścia,
+  - proponuje konkurentów działających w tej samej lub pokrewnej niszy,
+  - zwraca krótkie uzasadnienie dopasowania.
+- [x] Ustandaryzowanie odpowiedzi modelu do JSON:
+  - `input_company`,
+  - `input_main_activity`,
+  - `competitors[]` z polami: `name`, `similarity_reason`, `confidence`.
+- [x] Dodanie limitu liczby wyników (domyślnie 5, konfigurowalne 3-10).
+- [x] Obsługa błędów: brak danych wejściowych, timeout modelu, błędny format odpowiedzi modelu.
+- [x] Prezentacja wyników na froncie w tabeli/listingu z poziomem pewności.
+
+### Minimalny zakres danych do odczytu
+
+- [x] Nazwa firmy wejściowej.
+- [x] Przeważająca działalność wejściowa.
+- [x] Lista co najmniej 3 konkurentów.
+- [x] Krótkie uzasadnienie dla każdego konkurenta.
+- [x] Poziom pewności (`LOW`/`MEDIUM`/`HIGH` lub skala 0-1).
+
+### Poza zakresem
+
+- Automatyczne pobieranie danych finansowych konkurentów.
+- Budowa rankingu udziału w rynku na podstawie raportów płatnych.
+- Weryfikacja prawna statusu konkurentów w rejestrach.
+- Trwałe zapisywanie historii rekomendacji do bazy danych.
+
+### Kryteria akceptacji (AC)
+
+- [x] Użytkownik może podać nazwę firmy i przeważającą działalność.
+- [x] API zwraca listę konkurentów w spójnym formacie JSON.
+- [x] Każdy wynik zawiera nazwę konkurenta, uzasadnienie i poziom pewności.
+- [x] Backend wywołuje OpenAI API z użyciem klucza z ENV i nie loguje wartości klucza.
+- [x] Dla poprawnej konfiguracji OpenAI endpoint zwraca wyniki bez błędu integracji.
+- [x] Frontend wyświetla wyniki w czytelnej formie.
+- [x] Dla błędu modelu użytkownik widzi kontrolowany komunikat.
+- [x] Dla niepełnych danych wejściowych API zwraca błąd walidacji `400`.
+
+### Definition of Done (DoD)
+
+- [x] Aktualizacja frontendu (formularz + widok wyników)
+- [x] Endpoint `POST /api/competitors/find`
+- [x] Konfiguracja ENV (`OPENAI_MODEL`)
+- [x] Walidacja wejścia
+- [x] Integracja z modelem AI + parser odpowiedzi
+- [x] Obsługa błędów i logowanie techniczne (bez wrażliwych danych)
+- [x] Testy unit (walidacja + parser odpowiedzi)
+- [x] Testy integracyjne (mock odpowiedzi modelu)
+- [x] Aktualizacja dokumentacji
+- [x] Review/merge
+
+### Status
+DONE

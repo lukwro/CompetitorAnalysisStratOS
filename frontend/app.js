@@ -11,9 +11,21 @@ const debugOutput = document.getElementById("debug-output");
 const openAiTestBtn = document.getElementById("openai-connection-test-btn");
 const openAiResultEl = document.getElementById("openai-connection-result");
 
+const competitorForm = document.getElementById("competitor-form");
+const companyNameInput = document.getElementById("company-name");
+const mainActivityInput = document.getElementById("main-activity");
+const competitorLimitInput = document.getElementById("competitor-limit");
+const competitorMessageEl = document.getElementById("competitor-message");
+const competitorsTableBody = document.getElementById("competitors-table-body");
+
 function showMessage(text, type) {
   messageEl.textContent = text;
   messageEl.className = `message ${type}`;
+}
+
+function showCompetitorMessage(text, type) {
+  competitorMessageEl.textContent = text;
+  competitorMessageEl.className = `message ${type}`;
 }
 
 function showDebug(debugData) {
@@ -50,6 +62,23 @@ function addRow(company) {
   });
 
   tableBody.appendChild(row);
+}
+
+function renderCompetitors(competitors) {
+  competitorsTableBody.innerHTML = "";
+
+  competitors.forEach((item) => {
+    const row = document.createElement("tr");
+    const cells = [item.name ?? "-", item.similarity_reason ?? "-", item.confidence ?? "-"];
+
+    cells.forEach((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    });
+
+    competitorsTableBody.appendChild(row);
+  });
 }
 
 async function fetchCompanies() {
@@ -129,4 +158,45 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
+competitorForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  showCompetitorMessage("Szukam konkurencji...", "");
+
+  const limitValue = Number(competitorLimitInput.value);
+  const payload = {
+    company_name: companyNameInput.value,
+    main_activity: mainActivityInput.value,
+    limit: Number.isNaN(limitValue) ? undefined : limitValue,
+  };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/competitors/find`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    let body;
+    if (contentType.includes("application/json")) {
+      body = await response.json();
+    } else {
+      body = { detail: (await response.text()) || "Nieznany błąd serwera." };
+    }
+
+    if (!response.ok) {
+      showDebug({ request: { method: "POST", path: "/api/competitors/find", payload }, response: body });
+      throw new Error(body.detail || "Nie udało się wyszukać konkurencji.");
+    }
+
+    renderCompetitors(body.competitors || []);
+    showCompetitorMessage("Lista konkurencji została wygenerowana.", "success");
+  } catch (error) {
+    showCompetitorMessage(error.message, "error");
+  }
+});
+
 fetchCompanies();
+
